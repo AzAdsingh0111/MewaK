@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database Service
+  postgres:
+    image: postgres:16-alpine
+    container_name: mewak_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mewak_db
+      POSTGRES_USER: mewak_user
+      POSTGRES_PASSWORD: mewak_secure_password_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./mewak_schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mewak_user -d mewak_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mewak_network
+
+  # 2. FastAPI Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: mewak_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://mewak_user:mewak_secure_password_2026@postgres:5432/mewak_db
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - mewak_network
+
+  # 3. Streamlit Frontend Service
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: mewak_frontend
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - mewak_network
+
+  # 4. Automated Daily Report & Analytics Worker
+  report_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: mewak_report_worker
+    restart: "no"
+    command: ["python", "daily_report_worker.py"]
+    volumes:
+      - ./reports_output:/app/reports_output
+    environment:
+      - SMTP_SERVER=${SMTP_SERVER:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - RECIPIENT_EMAIL=${RECIPIENT_EMAIL:-admin@mewak.com}
+    depends_on:
+      - backend
+    networks:
+      - mewak_network
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  mewak_network:
+    driver: bridge
