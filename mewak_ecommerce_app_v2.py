@@ -20,77 +20,112 @@ import io
 import json
 import os
 
+import streamlit as st
+import pandas as pd
+import requests
+import datetime
+import random
+import io
+import json
+import os
+import base64
+
 # Page Configuration
 st.set_page_config(
-    page_title="MewaK - Integrated E-Commerce Platform",
-    page_icon="🛍️",
+    page_title="MewaK - Premium Dry Fruits & Marketplace",
+    page_icon="🍃",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for MewaK Branding
+# Function to get base64 encoded image
+def get_base64_image(image_path):
+    if os.path.exists(image_path):
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    return None
+
+logo_b64 = get_base64_image("assets/mewak_logo.png")
+
+# Custom CSS for MewaK Luxury Branding
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
     .stApp {
-        background-color: #f1f3f6;
+        background-color: #F8F5EE;
+        font-family: 'Plus Jakarta Sans', sans-serif;
     }
-    .mewak-header {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-        padding: 20px 28px;
+    .mewak-header-card {
+        background: linear-gradient(135deg, #1A120B 0%, #2B1B17 100%);
+        padding: 16px 28px;
         color: white;
-        border-radius: 12px;
+        border-radius: 14px;
         margin-bottom: 24px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 20px rgba(26, 18, 11, 0.15);
+        border: 1px solid #D4AF37;
     }
-    .mewak-logo {
-        font-size: 32px;
-        font-weight: 900;
-        color: #ffe500;
-        letter-spacing: 1.5px;
+    .mewak-logo-container {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .mewak-logo-img {
+        height: 52px;
+        border-radius: 6px;
+        background: #FDFBF7;
+        padding: 4px 10px;
+    }
+    .mewak-logo-text {
+        font-family: 'Cinzel', serif;
+        font-size: 28px;
+        font-weight: 800;
+        color: #ECC86A;
+        letter-spacing: 2px;
     }
     .mewak-tagline {
-        font-size: 14px;
-        font-style: italic;
-        color: #e0e0e0;
+        font-size: 13px;
+        color: #D6C7B2;
+        letter-spacing: 0.5px;
     }
     .status-online {
-        background-color: #e8f5e9;
-        color: #2e7d32;
-        padding: 6px 14px;
+        background: rgba(46, 125, 50, 0.18);
+        color: #81C784;
+        padding: 6px 16px;
         border-radius: 20px;
         font-weight: 600;
         font-size: 13px;
-        border: 1px solid #a5d6a7;
+        border: 1px solid #66BB6A;
     }
     .status-offline {
-        background-color: #fff3e0;
-        color: #e65100;
-        padding: 6px 14px;
+        background: rgba(230, 81, 0, 0.18);
+        color: #FFB74D;
+        padding: 6px 16px;
         border-radius: 20px;
         font-weight: 600;
         font-size: 13px;
-        border: 1px solid #ffe0b2;
+        border: 1px solid #FFA726;
     }
     .price-tag {
         font-size: 20px;
         font-weight: 800;
-        color: #1a237e;
+        color: #2B1B17;
     }
     .original-price {
         font-size: 14px;
         text-decoration: line-through;
-        color: #757575;
+        color: #8D7B68;
         margin-left: 8px;
     }
     .discount-badge {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 700;
-        color: #2e7d32;
-        background-color: #e8f5e9;
-        padding: 2px 8px;
+        color: #2E7D32;
+        background-color: #E8F5E9;
+        padding: 3px 8px;
         border-radius: 4px;
         margin-left: 8px;
     }
@@ -239,15 +274,19 @@ if "local_orders" not in st.session_state:
     st.session_state["local_orders"] = []
 
 
-# Header Banner
+# Header Banner with Logo
+logo_html = f'<img src="data:image/png;base64,{logo_b64}" class="mewak-logo-img" alt="MewaK Logo" />' if logo_b64 else '<span class="mewak-logo-text">MEWA<sup>🍃K</sup></span>'
+
 st.markdown(f"""
-<div class="mewak-header">
-    <div>
-        <span class="mewak-logo">🛍️ MewaK</span>
-        <span class="mewak-tagline"> | Integrated FastAPI + Streamlit Platform</span>
+<div class="mewak-header-card">
+    <div class="mewak-logo-container">
+        {logo_html}
+        <div>
+            <div class="mewak-tagline">Premium Dry Fruits, Nuts & Artisanal Marketplace</div>
+        </div>
     </div>
     <div>
-        {'<span class="status-online">🟢 FastAPI Backend Connected</span>' if is_api_online else '<span class="status-offline">🟡 Standalone Cache Mode</span>'}
+        {'<span class="status-online">🟢 FastAPI Backend Online</span>' if is_api_online else '<span class="status-offline">🟡 Standalone Session Mode</span>'}
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -255,7 +294,12 @@ st.markdown(f"""
 
 # Sidebar
 with st.sidebar:
-    st.header("⚙️ Navigation & Settings")
+    if logo_b64:
+        st.markdown(f'<div style="text-align: center; margin-bottom: 12px;"><img src="data:image/png;base64,{logo_b64}" style="max-width: 180px; background: white; padding: 6px 12px; border-radius: 8px; border: 1px solid #D4AF37;" /></div>', unsafe_allow_html=True)
+    else:
+        st.header("🍃 MewaK")
+
+    st.markdown("<h4 style='color: #2B1B17; margin-top: 0;'>⚙️ Navigation & Settings</h4>", unsafe_allow_html=True)
     
     # API URL Setting
     with st.expander("🌐 Backend API Connection"):
